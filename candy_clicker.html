@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Click for Candy</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      height: 100vh;
+      background: radial-gradient(circle at center, #b266ff, #4b0082);
+      font-family: 'Fredoka', sans-serif;
+      overflow: hidden;
+    }
+    #counter {
+      position: absolute;
+      top: 20px;
+      left: 30px;
+      font-size: 28px;
+      font-weight: 600;
+      color: white;
+      text-shadow: 2px 2px 4px #000;
+    }
+    .dot {
+      width: 200px;
+      height: 200px;
+      background: linear-gradient(145deg, #ff69b4, #d63384);
+      border-radius: 50%;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), inset 0 4px 8px rgba(255, 255, 255, 0.2);
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      color: black;
+      font-size: 20px;
+      font-weight: bold;
+      user-select: none;
+      transition: transform 0.1s ease, box-shadow 0.3s ease;
+    }
+    .dot.clicked {
+      animation: pulse 0.2s ease;
+    }
+    @keyframes pulse {
+      0% { transform: translate(-50%, -50%) scale(1); }
+      50% { transform: translate(-50%, -50%) scale(0.9); }
+      100% { transform: translate(-50%, -50%) scale(1); }
+    }
+    .particle {
+      position: absolute;
+      font-size: 22px;
+      animation: explode 0.8s ease-out forwards;
+      pointer-events: none;
+    }
+    @keyframes explode {
+      100% {
+        transform: translate(var(--x), var(--y));
+        opacity: 0;
+      }
+    }
+    .candy-gain {
+      position: absolute;
+      font-size: 40px;
+      font-weight: bold;
+      color: #fffacd;
+      text-shadow: 2px 2px 4px #000;
+      animation: rise 1s ease-out forwards;
+      pointer-events: none;
+      z-index: 999;
+    }
+    @keyframes rise {
+      0% { opacity: 1; transform: translateY(0px); }
+      100% { opacity: 0; transform: translateY(-40px); }
+    }
+    #shopToggle, #saveButton {
+      position: absolute;
+      top: 20px;
+      padding: 12px 20px;
+      font-size: 18px;
+      background-color: #ff69b4;
+      border: none;
+      color: white;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 2px 2px 10px #000;
+    }
+    #shopToggle {
+      right: 150px;
+    }
+    #saveButton {
+      right: 30px;
+    }
+    #shop {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 400px;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(8px);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      padding: 20px;
+      border-radius: 15px;
+      color: white;
+      box-shadow: 0 0 30px rgba(0,0,0,0.6);
+      z-index: 1000;
+    }
+    .shop-item {
+      background: rgba(0, 0, 0, 0.3);
+      margin: 12px 0;
+      padding: 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    .shop-item:hover {
+      background: rgba(0, 0, 0, 0.6);
+    }
+  </style>
+</head>
+<body>
+  <div id="counter">Candy: 0</div>
+  <div class="dot" id="candyDot">CLICK FOR CANDY</div>
+  <button id="shopToggle">🛍️ Shop</button>
+  <button id="saveButton">💾 Save</button>
+  <div id="shop"></div>
+  <audio id="clickSound" src="https://www.soundjay.com/button/sounds/button-16.mp3" preload="auto"></audio>
+
+  <script>
+    let candyCount = 0, multiplier = 1, isRush = false;
+    const upgrades = [
+      { name: 'Click Multiplier x2', cost: 50, apply: () => multiplier *= 2 },
+      { name: 'Auto Click +5/sec', cost: 150, apply: () => startAutoClicker(5, 1000) },
+      { name: 'Auto Click +20/0.5s', cost: 500, apply: () => startAutoClicker(20, 500) },
+      { name: 'Sugar Rush x2 (10s)', cost: 1000, apply: () => { isRush = true; setTimeout(() => isRush = false, 10000); } },
+      { name: 'Rain Bonus +100', cost: 800, apply: () => candyCount += 100 },
+      { name: 'Mega Clicker 100/0.2s', cost: 2000, apply: () => startAutoClicker(100, 200) }
+    ];
+    const DOM = {
+      counter: document.getElementById("counter"),
+      candyDot: document.getElementById("candyDot"),
+      shop: document.getElementById("shop"),
+      clickSound: document.getElementById("clickSound"),
+      shopToggle: document.getElementById("shopToggle"),
+      saveButton: document.getElementById("saveButton")
+    };
+    const candyIcons = ["🍬", "🍭", "🍫", "🍡", "🧁"];
+    const activeIntervals = [];
+
+    function updateUI() {
+      DOM.counter.textContent = `Candy: ${candyCount}`;
+    }
+
+    function clickDot(e) {
+      let gain = isRush ? multiplier * 2 : multiplier;
+      candyCount += gain;
+      updateUI();
+      DOM.clickSound.currentTime = 0;
+      DOM.clickSound.play();
+      DOM.candyDot.classList.add("clicked");
+      setTimeout(() => DOM.candyDot.classList.remove("clicked"), 200);
+      floatCandy(e.clientX, e.clientY, "+" + gain);
+      for (let i = 0; i < 10; i++) addParticle(e.clientX, e.clientY);
+    }
+
+    function floatCandy(x, y, text) {
+      const el = document.createElement("div");
+      el.className = "candy-gain";
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.textContent = text;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 1000);
+    }
+
+    function addParticle(x, y) {
+      const p = document.createElement("div");
+      p.className = "particle";
+      p.textContent = candyIcons[Math.floor(Math.random() * candyIcons.length)];
+      const angle = Math.random() * 2 * Math.PI;
+      const distance = Math.random() * 100 + 20;
+      p.style.setProperty("--x", Math.cos(angle) * distance + "px");
+      p.style.setProperty("--y", Math.sin(angle) * distance + "px");
+      p.style.left = x + "px";
+      p.style.top = y + "px";
+      document.body.appendChild(p);
+      setTimeout(() => p.remove(), 800);
+    }
+
+    function toggleShop() {
+      if (DOM.shop.style.display === "none" || DOM.shop.style.display === "") {
+        buildShop();
+        DOM.shop.style.display = "block";
+      } else {
+        DOM.shop.style.display = "none";
+      }
+    }
+
+    function buildShop() {
+      DOM.shop.innerHTML = '<h3>🍬 Candy Shop</h3>';
+      upgrades.forEach((upg, i) => {
+        const div = document.createElement("div");
+        div.className = "shop-item";
+        div.textContent = `${upg.name} - ${upg.cost} 🍬`;
+        div.onclick = () => buyUpgrade(i);
+        DOM.shop.appendChild(div);
+      });
+    }
+
+    function buyUpgrade(i) {
+      const upg = upgrades[i];
+      if (candyCount >= upg.cost) {
+        candyCount -= upg.cost;
+        upg.apply();
+        upgrades.splice(i, 1);
+        buildShop();
+        updateUI();
+      }
+    }
+
+    function startAutoClicker(amount, interval) {
+      const id = setInterval(() => {
+        candyCount += amount;
+        updateUI();
+      }, interval);
+      activeIntervals.push(id);
+    }
+
+    function saveGame() {
+      const data = {
+        candyCount,
+        multiplier,
+        isRush,
+        upgrades
+      };
+      localStorage.setItem("candyClickerSave", JSON.stringify(data));
+      alert("Game saved!");
+    }
+
+    DOM.candyDot.addEventListener("click", clickDot);
+    DOM.shopToggle.addEventListener("click", toggleShop);
+    DOM.saveButton.addEventListener("click", saveGame);
+    updateUI();
+  </script>
+</body>
+</html>
